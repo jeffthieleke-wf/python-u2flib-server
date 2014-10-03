@@ -13,7 +13,17 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from M2Crypto import EC, X509
+try:
+    import M2Crypto
+except ImportError:
+    M2Crypto = None
+
+try:
+    import ecdsa
+except ImportError:
+    ecdsa = None
+
+from u2flib_server import UnimplementedLibraryException
 from u2flib_server.jsapi import (RegisterRequest, RegisterResponse,
                                  SignRequest, SignResponse)
 from u2flib_server.utils import (pub_key_from_der, sha_256, websafe_decode,
@@ -55,8 +65,13 @@ class RawRegistrationResponse(object):
         self.key_handle = data[:kh_len]
         data = data[kh_len:]
 
-        self.certificate = X509.load_cert_der_string(data)
-        self.signature = data[len(self.certificate.as_der()):]
+        if M2Crypto:
+            self.certificate = M2Crypto.X509.load_cert_der_string(data)
+            self.signature = data[len(self.certificate.as_der()):]
+        elif ecdsa:
+            self.certificate = ecdsa.VerifyingKey.from_der(data)
+            self.signature =
+            raise UnimplementedLibraryException("Fix me")
 
     def __str__(self):
         return self.data.encode('hex')
@@ -70,7 +85,11 @@ class RawRegistrationResponse(object):
         # pubkey.verify_update(data)
         # if not pubkey.verify_final(self.signature) == 1:
         digest = H(data)
-        pub_key = EC.pub_key_from_der(pubkey.as_der())
+        if M2Crypto:
+            pub_key = M2Crypto.EC.pub_key_from_der(pubkey.as_der())
+        else:
+            raise UnimplementedLibraryException("Fix me")
+
         if not pub_key.verify_dsa_asn1(digest, self.signature) == 1:
             raise Exception('Attestation signature verification failed!')
 

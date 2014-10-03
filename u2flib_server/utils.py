@@ -14,7 +14,17 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from M2Crypto import EC, Rand
+try:
+    import M2Crypto
+except ImportError:
+    M2Crypto = None
+
+try:
+    import Crypto
+except ImportError:
+    Crypto = None
+
+from u2flib_server import UnimplementedLibraryException
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from hashlib import sha256
 import os
@@ -24,7 +34,12 @@ PUB_KEY_DER_PREFIX = "3059301306072a8648ce3d020106082a8648ce3d030107034200" \
 
 
 def pub_key_from_der(der):
-    return EC.pub_key_from_der(PUB_KEY_DER_PREFIX + der)
+    if M2Crypto:
+        return M2Crypto.EC.pub_key_from_der(PUB_KEY_DER_PREFIX + der)
+    elif Crypto:
+        raise UnimplementedLibraryException("Fix me")
+
+    raise UnimplementedLibraryException("Fix me")
 
 
 def websafe_decode(data):
@@ -44,8 +59,12 @@ def sha_256(data):
     return h.digest()
 
 
-Rand.rand_seed(os.urandom(1024))
+if M2Crypto:
+    M2Crypto.Rand.rand_seed(os.urandom(1024))
 
 
 def rand_bytes(n_bytes):
-    return Rand.rand_bytes(n_bytes)
+    if M2Crypto:
+        return M2Crypto.Rand.rand_bytes(n_bytes)
+
+    return os.urandom(n_bytes)
