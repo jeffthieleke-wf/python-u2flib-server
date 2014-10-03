@@ -25,6 +25,8 @@ If username is omitted, a default value of "user" will be used.
 Any error will be returned as a stacktrace with a 400 response code.
 
 Note that this is intended for test/demo purposes, not production use!
+
+This example requires webob to be installed.
 """
 
 from u2flib_server.u2f_v2 import (enrollment, deserialize_enrollment,
@@ -35,8 +37,6 @@ import logging as log
 import json
 import traceback
 import argparse
-
-APPID_PATH = "app-identity"
 
 
 def get_origin(environ):
@@ -74,11 +74,11 @@ class U2FServer(object):
     @wsgify
     def __call__(self, request):
         self.facet = get_origin(request.environ)
-        self.app_id = "%s/%s" % (self.facet, APPID_PATH)
+        self.app_id = self.facet
 
         page = request.path_info_pop()
 
-        if page == APPID_PATH:
+        if not page:
             return json.dumps([self.facet])
 
         try:

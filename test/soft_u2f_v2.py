@@ -15,9 +15,8 @@
 
 from M2Crypto import EC, BIO
 from u2flib_server.utils import (websafe_encode, websafe_decode,
-                                 sha_256 as H)
+                                 sha_256 as H, rand_bytes)
 import json
-import os
 import struct
 
 CURVE = EC.NID_X9_62_prime256v1
@@ -57,8 +56,7 @@ class SoftU2FDevice(object):
         data = {
             "version": "U2F_V2",
             "challenge": string, //b64 encoded challenge
-            "app_id": string, //app_id
-            "sessionId": string //opaque session ID
+            "appId": string, //app_id
         }
         """
         if isinstance(data, basestring):
@@ -82,8 +80,8 @@ class SoftU2FDevice(object):
         pub_key = str(privu.pub().get_der())[-65:]
 
         # Store
-        key_handle = os.urandom(64)
-        app_param = H(data['app_id'])
+        key_handle = rand_bytes(64)
+        app_param = H(data['appId'])
         self.keys[key_handle] = (privu, app_param)
 
         # Attestation signature
@@ -97,8 +95,7 @@ class SoftU2FDevice(object):
 
         return json.dumps({
             "registrationData": websafe_encode(raw_response),
-            "bd": websafe_encode(client_data),
-            "sessionId": data['sessionId']
+            "clientData": websafe_encode(client_data),
         })
 
     def getAssertion(self, data, facet="https://www.example.com", touch=False):
@@ -106,9 +103,8 @@ class SoftU2FDevice(object):
         signData = {
             'version': "U2F_V2",
             'challenge': websafe_encode(self.challenge),
-            'app_id': self.binding.app_id,
-            'key_handle': websafe_encode(self.binding.key_handle),
-            'sessionId': websafe_encode(self.session_id)
+            'appId': self.binding.app_id,
+            'keyHandle': websafe_encode(self.binding.key_handle),
         }
         """
         if isinstance(data, basestring):
@@ -117,7 +113,7 @@ class SoftU2FDevice(object):
         if data['version'] != "U2F_V2":
             raise ValueError("Unsupported U2F version: %s" % data['version'])
 
-        key_handle = websafe_decode(data['key_handle'])
+        key_handle = websafe_decode(data['keyHandle'])
         if not key_handle in self.keys:
             raise ValueError("Unknown key handle!")
 
@@ -145,9 +141,7 @@ class SoftU2FDevice(object):
         raw_response = touch + counter + signature
 
         return json.dumps({
-            "bd": websafe_encode(client_data),
-            "sign": websafe_encode(raw_response),
+            "clientData": websafe_encode(client_data),
+            "signatureData": websafe_encode(raw_response),
             "challenge": data['challenge'],
-            "sessionId": data['sessionId'],
-            "app_id": data['app_id']
         })
